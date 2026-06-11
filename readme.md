@@ -220,3 +220,149 @@ sudo netfilter-persistent save
 ```
 ```
 
+# 💾 Auto Mount USB Pen Drive on RK3568
+
+This guide automatically mounts a USB pen drive to `/mnt/usb` whenever it is plugged into the RK3568 device.
+
+
+Verify:
+
+```bash
+ls -ld /mnt/usb
+```
+
+---
+
+## ⚙️ Step 2: Create systemd Service
+
+Create a systemd template service:
+
+```bash
+sudo nano /etc/systemd/system/usb-mount@.service
+```
+
+Paste:
+
+```ini
+[Unit]
+Description=Auto mount pendrive %I
+
+[Service]
+Type=oneshot
+ExecStart=/bin/mount /dev/%I /mnt/usb
+```
+
+Save and exit.
+
+---
+
+## 🔄 Step 3: Reload systemd
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Verify:
+
+```bash
+systemctl status usb-mount@.service
+```
+
+---
+
+## 🔌 Step 4: Create udev Rule
+
+Create a udev rule to detect USB partitions:
+
+```bash
+sudo nano /etc/udev/rules.d/99-usb-mount.rules
+```
+
+Paste:
+
+```udev
+ACTION=="add", KERNEL=="sd[a-z][0-9]", TAG+="systemd", ENV{SYSTEMD_WANTS}="usb-mount@%k.service"
+```
+
+Save and exit.
+
+---
+
+## 🔄 Step 5: Reload udev Rules
+
+```bash
+sudo udevadm control --reload
+sudo udevadm trigger
+```
+
+Verify:
+
+```bash
+sudo udevadm test /sys/block/sda/sda1
+```
+
+---
+
+## 🚀 Step 6: Test
+
+Insert a USB pen drive.
+
+Check if it is mounted:
+
+```bash
+mount | grep /mnt/usb
+```
+
+Or:
+
+```bash
+df -h
+```
+
+Expected output:
+
+```text
+/dev/sda1 on /mnt/usb
+```
+
+---
+
+## 📂 Access Files
+
+```bash
+cd /mnt/usb
+ls -la
+```
+
+---
+
+## 🛠️ Troubleshooting
+
+Check detected USB devices:
+
+```bash
+lsblk
+```
+
+Check systemd logs:
+
+```bash
+journalctl -u usb-mount@sda1.service
+```
+
+Check udev events:
+
+```bash
+udevadm monitor
+```
+
+---
+
+## 📌 Notes
+
+* Supports USB partitions such as `sda1`, `sdb1`, `sdc1`, etc.
+* Mount point is `/mnt/usb`.
+* Requires a supported filesystem (FAT32, exFAT, NTFS, ext4).
+* If another USB drive is inserted while one is already mounted, the mount command may fail because all devices use the same mount point.
+
+
