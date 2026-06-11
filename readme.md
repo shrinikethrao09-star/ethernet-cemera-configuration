@@ -176,3 +176,47 @@ wwan0 / usb0 / wlan0
 * `wwan0`, `usb0`, or `wlan0` is the Internet-facing interface.
 * Enable only one NAT configuration for the active WAN interface.
 * Save rules using `netfilter-persistent save` so they survive reboot.
+
+  ## 🌐 Restore DHCP Mode (Default Network)
+
+If you want to return `eth0` to normal DHCP mode:
+
+```bash
+sudo nmcli connection modify "Wired connection 1" ipv4.method auto
+sudo nmcli connection modify "Wired connection 1" ipv4.addresses ""
+sudo nmcli connection up "Wired connection 1"
+```
+
+Verify:
+
+```bash
+ip addr show eth0
+nmcli connection show "Wired connection 1"
+```
+
+**Restores:**
+
+* DHCP IP assignment
+* Automatic gateway configuration
+* Automatic DNS configuration
+
+---
+
+## 🧹 Disable NAT and IP Forwarding (Optional)
+
+```bash
+sudo iptables -t nat -F
+sudo iptables -F FORWARD
+sudo sysctl -w net.ipv4.ip_forward=0
+sudo netfilter-persistent save
+```
+
+**Disables:**
+
+* NAT (MASQUERADE)
+* Packet forwarding
+* Internet sharing
+
+```
+```
+
