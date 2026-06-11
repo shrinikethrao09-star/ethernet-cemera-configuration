@@ -365,4 +365,137 @@ udevadm monitor
 * Requires a supported filesystem (FAT32, exFAT, NTFS, ext4).
 * If another USB drive is inserted while one is already mounted, the mount command may fail because all devices use the same mount point.
 
+  # RK3568 VNC + SSH Proxy (Clean Setup)
+
+## 1. Connect to RK3568 (from ThinkPad)
+
+```bash
+ssh -o 'ProxyCommand socat - PROXY:138.201.17.179:%h:%p,proxyport=5002' \
+sh@KA01MS8977.example.com
+```
+
+---
+
+## 2. Install VNC Viewer on ThinkPad
+
+### Ubuntu/Debian
+
+Download:
+
+https://www.realvnc.com/en/connect/download/viewer/
+
+Or install via terminal:
+
+```bash
+wget https://downloads.realvnc.com/download/file/viewer.files/VNC-Viewer-Latest-Linux-x64.deb
+sudo apt install ./VNC-Viewer-Latest-Linux-x64.deb
+```
+
+Launch:
+
+```bash
+vncviewer
+```
+
+---
+
+## 3. Start VNC Server on RK3568
+
+### Create password (first time only)
+
+```bash
+x11vnc -storepasswd
+```
+
+Password file:
+
+```text
+/home/sh/.vnc/passwd
+```
+
+### Start x11vnc
+
+```bash
+sudo x11vnc \
+-display :0 \
+-auth /var/run/lightdm/root/:0 \
+-rfbauth /home/sh/.vnc/passwd \
+-forever \
+-shared
+```
+
+Expected output:
+
+```text
+PORT=5901
+The VNC desktop is: :1
+```
+
+Leave this terminal running.
+
+---
+
+## 4. Create SSH Tunnel (NEW terminal on ThinkPad)
+
+```bash
+ssh -N \
+-L 5901:127.0.0.1:5901 \
+-o 'ProxyCommand socat - PROXY:138.201.17.179:%h:%p,proxyport=5002' \
+sh@KA01MS8977.example.com
+```
+
+Keep this terminal open.
+
+---
+
+## 5. Open VNC Viewer
+
+Launch:
+
+```bash
+vncviewer
+```
+
+Connect to:
+
+```text
+localhost:5901
+```
+
+Then:
+
+1. Click Connect
+2. Enter VNC password
+3. Accept warning if shown
+4. RK3568 desktop should appear
+
+---
+
+## 6. Stop Everything
+
+### Stop VNC Server
+
+On RK3568 terminal:
+
+```text
+Ctrl + C
+```
+
+### Stop SSH Tunnel
+
+On ThinkPad tunnel terminal:
+
+```text
+Ctrl + C
+```
+
+### Verify VNC stopped
+
+```bash
+ss -tlnp | grep 5901
+```
+
+No output means VNC server is stopped.
+
+
 
