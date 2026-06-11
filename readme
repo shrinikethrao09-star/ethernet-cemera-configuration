@@ -1,1 +1,210 @@
+# Ethernet to Internet Sharing using NetworkManager + IPTables
+
+This guide configures `eth0` as a local LAN interface (`192.168.0.1/24`) and shares Internet access from another interface (`wwan0`, `usb0`, or `wlan0`) using IP forwarding and NAT.
+
+---
+
+## 1. Configure eth0 with Static IP
+
+Check available connections:
+
+```bash
+nmcli connection show
+```
+
+Set `eth0` to `192.168.0.1/24`:
+
+```bash
+sudo nmcli connection modify "Wired connection 1" ipv4.addresses 192.168.0.1/24
+sudo nmcli connection modify "Wired connection 1" ipv4.method manual
+sudo nmcli connection up "Wired connection 1"
+```
+
+Verify:
+
+```bash
+nmcli connection show
+ip addr show eth0
+```
+
+---
+
+## 2. Enable IP Forwarding
+
+Edit sysctl configuration:
+
+```bash
+sudo nano /etc/sysctl.conf
+```
+
+Add or uncomment:
+
+```text
+net.ipv4.ip_forward=1
+```
+
+Apply changes:
+
+```bash
+sudo sysctl -p
+```
+
+Verify:
+
+```bash
+cat /proc/sys/net/ipv4/ip_forward
+```
+
+Expected output:
+
+```text
+1
+```
+
+---
+
+## 3. Install Persistent IPTables Rules
+
+Update packages:
+
+```bash
+sudo apt update
+```
+
+Install:
+
+```bash
+sudo apt install iptables-persistent
+```
+
+Verify:
+
+```bash
+dpkg -l | grep iptables-persistent
+```
+
+---
+
+## 4. Clear Existing Rules (Optional)
+
+Flush NAT and forwarding rules:
+
+```bash
+sudo iptables -t nat -F
+sudo iptables -F FORWARD
+```
+
+Verify:
+
+```bash
+sudo iptables -t nat -L -n -v
+sudo iptables -L FORWARD -n -v
+```
+
+---
+
+## 5. Configure NAT and Forwarding
+
+### Option A: Share Internet from WWAN (4G/5G Modem)
+
+```bash
+sudo iptables -t nat -A POSTROUTING -o wwan0 -j MASQUERADE
+
+sudo iptables -A FORWARD -i eth0 -o wwan0 -j ACCEPT
+
+sudo iptables -A FORWARD -i wwan0 -o eth0 \
+  -m state --state RELATED,ESTABLISHED -j ACCEPT
+```
+
+---
+
+### Option B: Share Internet from USB Network Interface
+
+```bash
+sudo iptables -t nat -A POSTROUTING -o usb0 -j MASQUERADE
+
+sudo iptables -A FORWARD -i eth0 -o usb0 -j ACCEPT
+
+sudo iptables -A FORWARD -i usb0 -o eth0 \
+  -m state --state RELATED,ESTABLISHED -j ACCEPT
+```
+
+---
+
+### Option C: Share Internet from Wi-Fi
+
+```bash
+sudo iptables -t nat -A POSTROUTING -o wlan0 -j MASQUERADE
+
+sudo iptables -A FORWARD -i eth0 -o wlan0 -j ACCEPT
+
+sudo iptables -A FORWARD -i wlan0 -o eth0 \
+  -m state --state RELATED,ESTABLISHED -j ACCEPT
+```
+
+---
+
+## 6. Save Rules Permanently
+
+Save current IPTables configuration:
+
+```bash
+sudo netfilter-persistent save
+```
+
+Reload saved rules:
+
+```bash
+sudo netfilter-persistent reload
+```
+
+---
+
+## 7. Verify Configuration
+
+Check NAT rules:
+
+```bash
+sudo iptables -t nat -L -n -v
+```
+
+Check forwarding rules:
+
+```bash
+sudo iptables -L FORWARD -n -v
+```
+
+Check IP forwarding:
+
+```bash
+cat /proc/sys/net/ipv4/ip_forward
+```
+
+---
+
+## Network Topology
+
+```text
+                Internet
+                    |
+         +----------+----------+
+         |                     |
+       wwan0 / usb0 / wlan0
+                    |
+             Linux Gateway
+             eth0: 192.168.0.1
+                    |
+            Ethernet Clients
+       (192.168.0.x network)
+```
+
+---
+
+## Notes
+
+* `eth0` acts as the LAN interface.
+* `wwan0`, `usb0`, or `wlan0` acts as the WAN (Internet) interface.
+* IP forwarding must be enabled for routing to work.
+* NAT (MASQUERADE) allows multiple LAN devices to share a single Internet connection.
+* Rules saved using `netfilter-persistent` survive reboots.
 
